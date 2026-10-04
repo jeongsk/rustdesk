@@ -21,6 +21,7 @@ import '../../models/model.dart';
 import '../../models/platform_model.dart';
 import '../../common/shared_state.dart';
 import './popup_menu.dart';
+import './auto_resolution.dart';
 import './kb_layout_type_chooser.dart';
 import 'package:flutter_hbb/utils/scale.dart';
 import 'package:flutter_hbb/common/widgets/custom_scale_base.dart';
@@ -2258,6 +2259,7 @@ class _ResolutionsMenuState extends State<_ResolutionsMenu> {
     return _SubmenuButton(
       ffi: widget.ffi,
       menuChildren: <Widget>[
+            _autoFitResolutionMenuButton(),
             _OriginalResolutionMenuButton(context, showOriginalBtn),
             _FitLocalResolutionMenuButton(context, showFitLocalBtn),
             _customResolutionMenuButton(context, isVirtualDisplay),
@@ -2364,6 +2366,11 @@ class _ResolutionsMenuState extends State<_ResolutionsMenu> {
     if (pi.currentDisplay == kAllDisplayValue) {
       return;
     }
+    // A manual choice would be overridden right away by auto-fit.
+    final autoResolution = AutoResolutionController.find(widget.id);
+    if (autoResolution?.enabled.value == true) {
+      await autoResolution!.setEnabled(false);
+    }
     await bind.sessionChangeResolution(
       sessionId: ffi.sessionId,
       display: pi.currentDisplay,
@@ -2389,6 +2396,17 @@ class _ResolutionsMenuState extends State<_ResolutionsMenu> {
         }
       }
     });
+  }
+
+  Widget _autoFitResolutionMenuButton() {
+    final controller = AutoResolutionController.find(widget.id);
+    if (controller == null) return Offstage();
+    return Obx(() => CkbMenuButton(
+          value: controller.enabled.value,
+          onChanged: (v) => controller.setEnabled(v == true),
+          ffi: widget.ffi,
+          child: Text(translate('Auto-fit resolution to window')),
+        ));
   }
 
   Widget _OriginalResolutionMenuButton(
