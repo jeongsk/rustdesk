@@ -10,6 +10,7 @@ pub const OPTION_SHOW_MONITORS_TOOLBAR: &str = "show_monitors_toolbar";
 pub const OPTION_SHOW_REMOTE_CURSOR: &str = "show_remote_cursor";
 pub const OPTION_FOLLOW_REMOTE_CURSOR: &str = "follow_remote_cursor";
 pub const OPTION_FOLLOW_REMOTE_WINDOW: &str = "follow_remote_window";
+pub const OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT: &str = "fit_local_resolution_on_connect";
 pub const OPTION_SHOW_QUALITY_MONITOR: &str = "show_quality_monitor";
 pub const OPTION_DISABLE_AUDIO: &str = "disable_audio";
 pub const OPTION_ENABLE_REMOTE_PRINTER: &str = "enable-remote-printer";
@@ -88,6 +89,7 @@ pub const OPTION_ENABLE_DIRECTX_CAPTURE: &str = "enable-directx-capture";
 pub const OPTION_ENABLE_ANDROID_SOFTWARE_ENCODING_HALF_SCALE: &str =
     "enable-android-software-encoding-half-scale";
 pub const OPTION_ENABLE_TRUSTED_DEVICES: &str = "enable-trusted-devices";
+pub const OPTION_TRUSTED_DEVICE_EXPIRATION: &str = "trusted-device-expiration-days";
 pub const OPTION_AV1_TEST: &str = "av1-test";
 /// Maximum number of files allowed during a single file transfer request.
 ///
@@ -122,6 +124,7 @@ pub const OPTION_HIDE_PROXY_SETTINGS: &str = "hide-proxy-settings";
 pub const OPTION_HIDE_REMOTE_PRINTER_SETTINGS: &str = "hide-remote-printer-settings";
 pub const OPTION_HIDE_WEBSOCKET_SETTINGS: &str = "hide-websocket-settings";
 pub const OPTION_HIDE_STOP_SERVICE: &str = "hide-stop-service";
+pub const OPTION_QUIT_BUTTON_TEXT: &str = "quit-button-text";
 pub const OPTION_ALLOW_COMMAND_LINE_SETTINGS_WHEN_SETTINGS_DISABLED: &str =
     "allow-command-line-settings-when-settings-disabled";
 
@@ -214,6 +217,7 @@ pub const KEYS_DISPLAY_SETTINGS: &[&str] = &[
     OPTION_CODEC_PREFERENCE,
     OPTION_SYNC_INIT_CLIPBOARD,
     OPTION_TRACKPAD_SPEED,
+    OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT,
 ];
 // DEFAULT_LOCAL_SETTINGS, OVERWRITE_LOCAL_SETTINGS
 pub const KEYS_LOCAL_SETTINGS: &[&str] = &[
@@ -311,6 +315,7 @@ pub const KEYS_SETTINGS: &[&str] = &[
     OPTION_API_SERVER,
     OPTION_KEY,
     OPTION_ALLOW_WEBSOCKET,
+    OPTION_WEBSOCKET_PORT,
     OPTION_PRESET_ADDRESS_BOOK_NAME,
     OPTION_PRESET_ADDRESS_BOOK_TAG,
     OPTION_PRESET_ADDRESS_BOOK_ALIAS,
@@ -322,6 +327,7 @@ pub const KEYS_SETTINGS: &[&str] = &[
     OPTION_ENABLE_DIRECTX_CAPTURE,
     OPTION_ENABLE_ANDROID_SOFTWARE_ENCODING_HALF_SCALE,
     OPTION_ENABLE_TRUSTED_DEVICES,
+    OPTION_TRUSTED_DEVICE_EXPIRATION,
     OPTION_RELAY_SERVER,
     OPTION_ICE_SERVERS,
     OPTION_DISABLE_UDP,
@@ -370,6 +376,7 @@ pub const KEYS_BUILDIN_SETTINGS: &[&str] = &[
     OPTION_ENABLE_PERM_CHANGE_IN_ACCEPT_WINDOW,
     OPTION_HIDE_ELEVATE_BUTTON_IN_ACCEPT_WINDOW,
     OPTION_ALLOW_COMMAND_LINE_SETTINGS_WHEN_SETTINGS_DISABLED,
+    OPTION_QUIT_BUTTON_TEXT,
 ];
 
 #[cfg(test)]
