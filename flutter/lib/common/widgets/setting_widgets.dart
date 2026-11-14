@@ -243,6 +243,11 @@ List<(String, String)> otherDefaultSettings() {
         'Use all my displays for the remote session',
         kKeyUseAllMyDisplaysForTheRemoteSession
       ),
+    if (isDesktop)
+      (
+        'Fit remote resolution to local display on connect',
+        kKeyFitLocalResolutionOnConnect
+      ),
     ('Keep terminal sessions on disconnect', kOptionTerminalPersistent),
     (
       'Allow terminal apps to copy to clipboard',
