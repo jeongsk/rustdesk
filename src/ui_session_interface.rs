@@ -1598,8 +1598,9 @@ impl<T: InvokeUiSession> Session<T> {
     // keep re-applying it on later connects even after the option is turned off.
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     fn try_fit_local_resolution_on_connect(&self, pi: &PeerInfo) {
+        use base::config::keys::OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT;
         use hbb_common::config::UserDefaultConfig;
-        if UserDefaultConfig::load().get(keys::OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT) != "Y" {
+        if UserDefaultConfig::load().get(OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT) != "Y" {
             return;
         }
         let display = pi.current_display;
