@@ -259,6 +259,8 @@ const String kKeyShowDisplaysAsIndividualWindows =
 const String kKeyUseAllMyDisplaysForTheRemoteSession =
     'use_all_my_displays_for_the_remote_session';
 const String kKeyShowMonitorsToolbar = 'show_monitors_toolbar';
+const String kKeyFitLocalResolutionOnConnect =
+    'fit_local_resolution_on_connect';
 const String kKeyReverseMouseWheel = "reverse_mouse_wheel";
 
 const String kMsgboxTextWaitingForImage = 'Connected, waiting for image...';

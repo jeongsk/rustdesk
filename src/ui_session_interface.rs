@@ -1593,6 +1593,45 @@ impl<T: InvokeUiSession> Session<T> {
         self.change_resolution(display, w, h);
     }
 
+    // Uses `do_change_resolution()` instead of `change_resolution()` so the
+    // fitted size is not saved as this peer's custom resolution, which would
+    // keep re-applying it on later connects even after the option is turned off.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    fn try_fit_local_resolution_on_connect(&self, pi: &PeerInfo) {
+        use hbb_common::config::UserDefaultConfig;
+        if UserDefaultConfig::load().get(keys::OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT) != "Y" {
+            return;
+        }
+        let display = pi.current_display;
+        if self
+            .lc
+            .read()
+            .unwrap()
+            .get_custom_resolution(display)
+            .is_some()
+        {
+            return;
+        }
+        let Some(current) = pi.displays.get(display as usize) else {
+            return;
+        };
+        let Some(local) = local_main_display_resolution() else {
+            return;
+        };
+        let is_virtual_display = current
+            .original_resolution
+            .as_ref()
+            .map_or(false, |r| r.width == 0 && r.height == 0);
+        if let Some((width, height)) = fit_local_resolution(
+            local,
+            (current.width, current.height),
+            &pi.resolutions.resolutions,
+            is_virtual_display,
+        ) {
+            self.do_change_resolution(display, width, height);
+        }
+    }
+
     fn do_change_resolution(&self, display: i32, width: i32, height: i32) {
         let mut misc = Misc::new();
         let resolution = Resolution {
@@ -1841,6 +1880,8 @@ impl<T: InvokeUiSession> Interface for Session<T> {
             }
             if !self.is_view_camera() {
                 self.try_change_init_resolution(pi.current_display);
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                self.try_fit_local_resolution_on_connect(&pi);
                 let p = self.lc.read().unwrap().should_auto_login();
                 if !p.is_empty() {
                     crate::client::auto_login(p, &pi, self.clone());
@@ -2112,4 +2153,72 @@ async fn start_one_port_forward<T: InvokeUiSession>(
 async fn send_note(url: String, id: String, sid: u64, note: String) {
     let body = serde_json::json!({ "id": id, "session_id": sid, "note": note });
     allow_err!(crate::post_request(url, body.to_string(), "").await);
+}
+
+// Mirrors `main_get_main_display()`: the first local display, skipped on Wayland.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn local_main_display_resolution() -> Option<(i32, i32)> {
+    #[cfg(target_os = "linux")]
+    if !crate::platform::linux::is_x11() {
+        return None;
+    }
+    let displays = crate::display_service::try_get_displays().ok()?;
+    let display = displays.first()?;
+    Some((display.width() as i32, display.height() as i32))
+}
+
+#[cfg(any(not(any(target_os = "android", target_os = "ios")), test))]
+fn fit_local_resolution(
+    local: (i32, i32),
+    current: (i32, i32),
+    supported: &[Resolution],
+    is_virtual_display: bool,
+) -> Option<(i32, i32)> {
+    if local == current {
+        return None;
+    }
+    if is_virtual_display || supported.iter().any(|r| (r.width, r.height) == local) {
+        Some(local)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn res(width: i32, height: i32) -> Resolution {
+        Resolution {
+            width,
+            height,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn fits_local_resolution_when_peer_supports_it() {
+        let supported = [res(1920, 1080), res(2560, 1440)];
+        assert_eq!(
+            fit_local_resolution((2560, 1440), (1920, 1080), &supported, false),
+            Some((2560, 1440))
+        );
+        assert_eq!(
+            fit_local_resolution((2560, 1600), (1920, 1080), &[], true),
+            Some((2560, 1600))
+        );
+    }
+
+    #[test]
+    fn keeps_resolution_when_unsupported_or_already_fit() {
+        let supported = [res(1920, 1080)];
+        assert_eq!(
+            fit_local_resolution((2560, 1600), (1920, 1080), &supported, false),
+            None
+        );
+        assert_eq!(
+            fit_local_resolution((1920, 1080), (1920, 1080), &supported, false),
+            None
+        );
+    }
 }

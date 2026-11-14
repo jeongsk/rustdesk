@@ -10,6 +10,7 @@ pub const OPTION_SHOW_MONITORS_TOOLBAR: &str = "show_monitors_toolbar";
 pub const OPTION_SHOW_REMOTE_CURSOR: &str = "show_remote_cursor";
 pub const OPTION_FOLLOW_REMOTE_CURSOR: &str = "follow_remote_cursor";
 pub const OPTION_FOLLOW_REMOTE_WINDOW: &str = "follow_remote_window";
+pub const OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT: &str = "fit_local_resolution_on_connect";
 pub const OPTION_SHOW_QUALITY_MONITOR: &str = "show_quality_monitor";
 pub const OPTION_DISABLE_AUDIO: &str = "disable_audio";
 pub const OPTION_ENABLE_REMOTE_PRINTER: &str = "enable-remote-printer";
@@ -216,6 +217,7 @@ pub const KEYS_DISPLAY_SETTINGS: &[&str] = &[
     OPTION_CODEC_PREFERENCE,
     OPTION_SYNC_INIT_CLIPBOARD,
     OPTION_TRACKPAD_SPEED,
+    OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT,
 ];
 // DEFAULT_LOCAL_SETTINGS, OVERWRITE_LOCAL_SETTINGS
 pub const KEYS_LOCAL_SETTINGS: &[&str] = &[
