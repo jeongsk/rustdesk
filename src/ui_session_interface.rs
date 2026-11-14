@@ -12,6 +12,7 @@ use base::config::keys;
 #[cfg(not(feature = "flutter"))]
 use base::fs;
 use base::message_proto::*;
+#[cfg(feature = "flutter")]
 use bytes::Bytes;
 use hbb_common::{
     allow_err,
@@ -23,7 +24,7 @@ use hbb_common::{
         sync::mpsc,
         time::{Duration as TokioDuration, Instant},
     },
-    whoami, Stream,
+    whoami, SessionID, Stream,
 };
 use rdev::{Event, EventType::*, KeyCode};
 #[cfg(all(feature = "vram", feature = "flutter"))]
@@ -497,8 +498,8 @@ impl<T: InvokeUiSession> Session<T> {
             self.send(Data::Message(msg));
         }
         if value != "custom" {
-            let last_auto_fps = self.lc.read().unwrap().last_auto_fps;
-            if last_auto_fps.unwrap_or(usize::MAX) >= 30 {
+            let custom_fps = *self.lc.read().unwrap().custom_fps.lock().unwrap();
+            if custom_fps.unwrap_or(30) != 30 {
                 // non custom quality use 30 fps
                 let msg = self.lc.write().unwrap().set_custom_fps(30, false);
                 self.send(Data::Message(msg));
@@ -921,6 +922,7 @@ impl<T: InvokeUiSession> Session<T> {
     #[cfg(any(target_os = "ios"))]
     pub fn handle_flutter_raw_key_event(
         &self,
+        _session_id: SessionID,
         _keyboard_mode: &str,
         _name: &str,
         _platform_code: i32,
@@ -933,6 +935,7 @@ impl<T: InvokeUiSession> Session<T> {
     #[cfg(not(any(target_os = "ios")))]
     pub fn handle_flutter_raw_key_event(
         &self,
+        session_id: SessionID,
         keyboard_mode: &str,
         name: &str,
         platform_code: i32,
@@ -944,6 +947,7 @@ impl<T: InvokeUiSession> Session<T> {
             self._handle_key_flutter_simulation(keyboard_mode, platform_code, down_or_up);
         } else {
             self._handle_raw_key_non_flutter_simulation(
+                session_id,
                 keyboard_mode,
                 platform_code,
                 position_code,
@@ -956,6 +960,7 @@ impl<T: InvokeUiSession> Session<T> {
     #[cfg(not(any(target_os = "ios")))]
     fn _handle_raw_key_non_flutter_simulation(
         &self,
+        session_id: SessionID,
         keyboard_mode: &str,
         platform_code: i32,
         position_code: i32,
@@ -989,11 +994,18 @@ impl<T: InvokeUiSession> Session<T> {
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             extra_data: 0,
         };
-        keyboard::client::process_event_with_session(keyboard_mode, &event, Some(lock_modes), self);
+        keyboard::client::process_event_with_session(
+            keyboard_mode,
+            &event,
+            Some(lock_modes),
+            self,
+            session_id,
+        );
     }
 
     pub fn handle_flutter_key_event(
         &self,
+        session_id: SessionID,
         keyboard_mode: &str,
         character: &str,
         usb_hid: i32,
@@ -1004,6 +1016,7 @@ impl<T: InvokeUiSession> Session<T> {
             self._handle_key_flutter_simulation(keyboard_mode, usb_hid, down_or_up);
         } else {
             self._handle_key_non_flutter_simulation(
+                session_id,
                 keyboard_mode,
                 character,
                 usb_hid,
@@ -1039,6 +1052,7 @@ impl<T: InvokeUiSession> Session<T> {
 
     fn _handle_key_non_flutter_simulation(
         &self,
+        session_id: SessionID,
         keyboard_mode: &str,
         character: &str,
         usb_hid: i32,
@@ -1100,7 +1114,13 @@ impl<T: InvokeUiSession> Session<T> {
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             extra_data: 0,
         };
-        keyboard::client::process_event_with_session(keyboard_mode, &event, Some(lock_modes), self);
+        keyboard::client::process_event_with_session(
+            keyboard_mode,
+            &event,
+            Some(lock_modes),
+            self,
+            session_id,
+        );
     }
 
     // flutter only TODO new input
@@ -1389,18 +1409,9 @@ impl<T: InvokeUiSession> Session<T> {
 
     pub fn send2fa(&self, code: String, trust_this_device: bool) {
         let mut msg_out = Message::new();
-        let hwid = if trust_this_device {
-            crate::get_hwid()
-        } else {
-            Bytes::new()
-        };
-        self.lc.write().unwrap().set_option(
-            "trust-this-device".to_string(),
-            if trust_this_device { "Y" } else { "" }.to_string(),
-        );
         msg_out.set_auth_2fa(Auth2FA {
             code,
-            hwid,
+            trust_this_device,
             ..Default::default()
         });
         self.send(Data::Message(msg_out));
@@ -1580,6 +1591,46 @@ impl<T: InvokeUiSession> Session<T> {
             return;
         };
         self.change_resolution(display, w, h);
+    }
+
+    // Uses `do_change_resolution()` instead of `change_resolution()` so the
+    // fitted size is not saved as this peer's custom resolution, which would
+    // keep re-applying it on later connects even after the option is turned off.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    fn try_fit_local_resolution_on_connect(&self, pi: &PeerInfo) {
+        use base::config::keys::OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT;
+        use hbb_common::config::UserDefaultConfig;
+        if UserDefaultConfig::load().get(OPTION_FIT_LOCAL_RESOLUTION_ON_CONNECT) != "Y" {
+            return;
+        }
+        let display = pi.current_display;
+        if self
+            .lc
+            .read()
+            .unwrap()
+            .get_custom_resolution(display)
+            .is_some()
+        {
+            return;
+        }
+        let Some(current) = pi.displays.get(display as usize) else {
+            return;
+        };
+        let Some(local) = local_main_display_resolution() else {
+            return;
+        };
+        let is_virtual_display = current
+            .original_resolution
+            .as_ref()
+            .map_or(false, |r| r.width == 0 && r.height == 0);
+        if let Some((width, height)) = fit_local_resolution(
+            local,
+            (current.width, current.height),
+            &pi.resolutions.resolutions,
+            is_virtual_display,
+        ) {
+            self.do_change_resolution(display, width, height);
+        }
     }
 
     fn do_change_resolution(&self, display: i32, width: i32, height: i32) {
@@ -1830,9 +1881,11 @@ impl<T: InvokeUiSession> Interface for Session<T> {
             }
             if !self.is_view_camera() {
                 self.try_change_init_resolution(pi.current_display);
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                self.try_fit_local_resolution_on_connect(&pi);
                 let p = self.lc.read().unwrap().should_auto_login();
                 if !p.is_empty() {
-                    input_os_password(p, true, self.clone());
+                    crate::client::auto_login(p, &pi, self.clone());
                 }
             }
             let current = &pi.displays[pi.current_display as usize];
@@ -1888,8 +1941,8 @@ impl<T: InvokeUiSession> Interface for Session<T> {
         }
     }
 
-    async fn handle_hash(&self, pass: &str, hash: Hash, peer: &mut Stream) -> bool {
-        handle_hash(self.lc.clone(), pass, hash, self, peer).await
+    async fn handle_hash(&self, pass: &str, hash: Hash, trust: &mut crate::trusted_devices::client::Session, peer: &mut Stream) -> bool {
+        handle_hash(self.lc.clone(), pass, hash, self, trust, peer).await
     }
 
     async fn handle_login_from_ui(
@@ -1898,17 +1951,21 @@ impl<T: InvokeUiSession> Interface for Session<T> {
         os_password: String,
         password: String,
         remember: bool,
+        trust: &mut crate::trusted_devices::client::Session,
         peer: &mut Stream,
     ) {
-        handle_login_from_ui(
+        if let Err(error) = handle_login_from_ui(
             self.lc.clone(),
             os_username,
             os_password,
             password,
             remember,
+            trust,
             peer,
         )
-        .await;
+        .await {
+            self.on_error(&error.to_string());
+        }
     }
 
     async fn handle_test_delay(&self, t: TestDelay, peer: &mut Stream) {
@@ -1949,7 +2006,9 @@ impl<T: InvokeUiSession> Session<T> {
         self.send_key_event(&crate::keyboard::client::event_lock_screen());
     }
     pub fn ctrl_alt_del(&self) {
-        self.send_key_event(&crate::keyboard::client::event_ctrl_alt_del());
+        self.send_key_event(&crate::keyboard::client::event_ctrl_alt_del(
+            &self.peer_platform(),
+        ));
     }
 }
 
@@ -2016,6 +2075,12 @@ pub async fn io_loop<T: InvokeUiSession>(handler: Session<T>, round: u32) {
                         }
                     }
                     Some(Data::Close) => {
+                        // Pass the close on before leaving: breaking alone drops the mappings
+                        // with this runtime before they ever see it, so no KCP tunnel could
+                        // tell its peer it is closing (see the wait below).
+                        for s in queues.values() {
+                            s.send(Data::Close).ok();
+                        }
                         break;
                     }
                     Some(d) => {
@@ -2047,6 +2112,8 @@ pub async fn io_loop<T: InvokeUiSession>(handler: Session<T>, round: u32) {
             )
             .await;
         }
+        // Lets KCP tunnels tell their peers they are closing before this runtime is dropped.
+        crate::port_forward::wait_for_tunnel_close_reasons().await;
         return;
     }
     let mut remote = Remote::new(handler, receiver, sender);
@@ -2087,4 +2154,72 @@ async fn start_one_port_forward<T: InvokeUiSession>(
 async fn send_note(url: String, id: String, sid: u64, note: String) {
     let body = serde_json::json!({ "id": id, "session_id": sid, "note": note });
     allow_err!(crate::post_request(url, body.to_string(), "").await);
+}
+
+// Mirrors `main_get_main_display()`: the first local display, skipped on Wayland.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn local_main_display_resolution() -> Option<(i32, i32)> {
+    #[cfg(target_os = "linux")]
+    if !crate::platform::linux::is_x11() {
+        return None;
+    }
+    let displays = crate::display_service::try_get_displays().ok()?;
+    let display = displays.first()?;
+    Some((display.width() as i32, display.height() as i32))
+}
+
+#[cfg(any(not(any(target_os = "android", target_os = "ios")), test))]
+fn fit_local_resolution(
+    local: (i32, i32),
+    current: (i32, i32),
+    supported: &[Resolution],
+    is_virtual_display: bool,
+) -> Option<(i32, i32)> {
+    if local == current {
+        return None;
+    }
+    if is_virtual_display || supported.iter().any(|r| (r.width, r.height) == local) {
+        Some(local)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn res(width: i32, height: i32) -> Resolution {
+        Resolution {
+            width,
+            height,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn fits_local_resolution_when_peer_supports_it() {
+        let supported = [res(1920, 1080), res(2560, 1440)];
+        assert_eq!(
+            fit_local_resolution((2560, 1440), (1920, 1080), &supported, false),
+            Some((2560, 1440))
+        );
+        assert_eq!(
+            fit_local_resolution((2560, 1600), (1920, 1080), &[], true),
+            Some((2560, 1600))
+        );
+    }
+
+    #[test]
+    fn keeps_resolution_when_unsupported_or_already_fit() {
+        let supported = [res(1920, 1080)];
+        assert_eq!(
+            fit_local_resolution((2560, 1600), (1920, 1080), &supported, false),
+            None
+        );
+        assert_eq!(
+            fit_local_resolution((1920, 1080), (1920, 1080), &supported, false),
+            None
+        );
+    }
 }
