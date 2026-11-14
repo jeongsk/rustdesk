@@ -827,5 +827,6 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Request approval", "승인 요청"),
         ("Forever", "영구"),
         ("Fit remote resolution to local display on connect", "연결 시 원격 해상도를 로컬 디스플레이에 맞춤"),
+        ("Auto-fit resolution to window", "창 크기에 맞춰 해상도 자동 조정"),
     ].iter().cloned().collect();
 }

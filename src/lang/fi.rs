@@ -827,5 +827,6 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Request approval", "Pyydä hyväksyntää"),
         ("Forever", "Ikuisesti"),
         ("Fit remote resolution to local display on connect", ""),
+        ("Auto-fit resolution to window", ""),
     ].iter().cloned().collect();
 }

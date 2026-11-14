@@ -21,6 +21,7 @@ import '../../models/shortcut_model.dart';
 import '../../common/shared_state.dart';
 import '../../utils/image.dart';
 import '../widgets/remote_toolbar.dart';
+import '../widgets/auto_resolution.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
 import 'macos_full_screen_focus_recovery.dart';
@@ -130,6 +131,7 @@ class _RemotePageState extends State<RemotePage>
   Function(bool)? _onEnterOrLeaveImage4Toolbar;
 
   late FFI _ffi;
+  late AutoResolutionController _autoResolution;
   Worker? _waylandKeyboardModeWorker;
   bool _waylandKeyboardModeNormalized = false;
   bool _waylandKeyboardModeNormalizing = false;
@@ -159,6 +161,7 @@ class _RemotePageState extends State<RemotePage>
           widget.tabController?.state.listen(_onMacOSTabStateChanged);
     }
     Get.put<FFI>(_ffi, tag: widget.id);
+    _autoResolution = AutoResolutionController.put(widget.id, _ffi);
     _ffi.imageModel.addCallbackOnFirstImage((String peerId) {
       _ffi.canvasModel.activateLocalCursor();
       showKBLayoutTypeChooserIfNeeded(
@@ -698,6 +701,7 @@ class _RemotePageState extends State<RemotePage>
           overlays: SystemUiOverlay.values);
     }
     WakelockManager.disable(_uniqueKey);
+    await AutoResolutionController.delete(widget.id);
     await Get.delete<FFI>(tag: widget.id);
     removeSharedStates(widget.id);
   }
@@ -970,6 +974,7 @@ class _RemotePageState extends State<RemotePage>
         child: _ViewStyleUpdater(
           canvasModel: _ffi.canvasModel,
           inputModel: _ffi.inputModel,
+          onViewSizeChanged: _autoResolution.onViewSizeChanged,
           child: Builder(builder: (context) {
             final peerDisplay = CurrentDisplayState.find(widget.id);
             return Obx(
@@ -1027,12 +1032,14 @@ class _RemotePageState extends State<RemotePage>
 class _ViewStyleUpdater extends StatefulWidget {
   final CanvasModel canvasModel;
   final InputModel inputModel;
+  final ValueChanged<Size>? onViewSizeChanged;
   final Widget child;
 
   const _ViewStyleUpdater({
     Key? key,
     required this.canvasModel,
     required this.inputModel,
+    this.onViewSizeChanged,
     required this.child,
   }) : super(key: key);
 
@@ -1071,6 +1078,7 @@ class _ViewStyleUpdaterState extends State<_ViewStyleUpdater> {
               if (mounted && currentSize != null) {
                 widget.canvasModel.updateViewStyle();
                 widget.inputModel.updateImageWidgetSize(currentSize);
+                widget.onViewSizeChanged?.call(currentSize);
               }
             });
           }
