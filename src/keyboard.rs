@@ -153,6 +153,8 @@ pub mod client {
         if *lock {
             return;
         }
+        #[cfg(target_os = "macos")]
+        crate::platform::macos_system_shortcuts::restore_after_crash();
         super::start_grab_loop();
         *lock = true;
     }
@@ -202,6 +204,8 @@ pub mod client {
 
                 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
                 KEYBOARD_HOOKED.store(true, Ordering::SeqCst);
+                #[cfg(target_os = "macos")]
+                crate::platform::macos_system_shortcuts::suspend();
 
                 #[cfg(target_os = "linux")]
                 let had_owner = gs.owner.is_some();
@@ -294,6 +298,8 @@ pub mod client {
 
                 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
                 KEYBOARD_HOOKED.store(false, Ordering::SeqCst);
+                #[cfg(target_os = "macos")]
+                crate::platform::macos_system_shortcuts::restore();
 
                 gs.owner = None;
                 gs.last_grab = None;

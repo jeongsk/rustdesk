@@ -18,6 +18,9 @@ pub mod macos;
 pub mod macos_virtual_display;
 
 #[cfg(target_os = "macos")]
+pub mod macos_system_shortcuts;
+
+#[cfg(target_os = "macos")]
 pub mod delegate;
 
 #[cfg(target_os = "linux")]
