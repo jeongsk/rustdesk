@@ -925,3 +925,95 @@ extern "C" bool MacSetPrivacyMode(bool on) {
         return TurnOffPrivacyModeInternal();
     }
 }
+
+// CGVirtualDisplay is private CoreGraphics API. The classes are looked up at
+// runtime, so a macOS release without them disables the feature instead of
+// failing to load the binary.
+@interface CGVirtualDisplayDescriptor : NSObject
+@property(retain) dispatch_queue_t queue;
+@property(retain) NSString *name;
+@property unsigned int maxPixelsWide;
+@property unsigned int maxPixelsHigh;
+@property CGSize sizeInMillimeters;
+@property unsigned int serialNum;
+@property unsigned int productID;
+@property unsigned int vendorID;
+@end
+
+@interface CGVirtualDisplayMode : NSObject
+- (instancetype)initWithWidth:(unsigned int)width height:(unsigned int)height refreshRate:(double)refreshRate;
+@end
+
+@interface CGVirtualDisplaySettings : NSObject
+@property(retain) NSArray *modes;
+@property unsigned int hiDPI;
+@end
+
+@interface CGVirtualDisplay : NSObject
+- (instancetype)initWithDescriptor:(CGVirtualDisplayDescriptor *)descriptor;
+- (BOOL)applySettings:(CGVirtualDisplaySettings *)settings;
+@property(readonly) CGDirectDisplayID displayID;
+@end
+
+extern "C" bool MacVirtualDisplayApply(void *display, uint32_t width, uint32_t height) {
+    @autoreleasepool {
+        Class settingsClass = NSClassFromString(@"CGVirtualDisplaySettings");
+        Class modeClass = NSClassFromString(@"CGVirtualDisplayMode");
+        if (display == NULL || settingsClass == nil || modeClass == nil) {
+            return false;
+        }
+        CGVirtualDisplaySettings *settings = [[settingsClass new] autorelease];
+        settings.hiDPI = 1;
+        settings.modes = @[ [[[modeClass alloc] initWithWidth:width height:height refreshRate:60] autorelease] ];
+        return [(CGVirtualDisplay *)display applySettings:settings];
+    }
+}
+
+// Returns a retained display object, or NULL. Release it with MacVirtualDisplayDestroy.
+extern "C" void *MacVirtualDisplayCreate(uint32_t width, uint32_t height, uint32_t *displayId) {
+    @autoreleasepool {
+        Class descriptorClass = NSClassFromString(@"CGVirtualDisplayDescriptor");
+        Class displayClass = NSClassFromString(@"CGVirtualDisplay");
+        if (descriptorClass == nil || displayClass == nil) {
+            return NULL;
+        }
+        CGVirtualDisplayDescriptor *descriptor = [[descriptorClass new] autorelease];
+        dispatch_queue_t queue = dispatch_queue_create("com.carriez.rustdesk.virtual-display", DISPATCH_QUEUE_SERIAL);
+        descriptor.queue = queue;
+        dispatch_release(queue);
+        descriptor.name = @"RustDesk Virtual Display";
+        descriptor.maxPixelsWide = 7680;
+        descriptor.maxPixelsHigh = 4320;
+        descriptor.sizeInMillimeters = CGSizeMake(600, 340);
+        // A fixed serial lets macOS remember the arrangement across sessions.
+        descriptor.serialNum = 0x52440001;
+        descriptor.productID = 0x5244;
+        descriptor.vendorID = 0x5244;
+        CGVirtualDisplay *display = [[displayClass alloc] initWithDescriptor:descriptor];
+        if (display == nil) {
+            return NULL;
+        }
+        if (display.displayID == 0 || !MacVirtualDisplayApply(display, width, height)) {
+            [display release];
+            return NULL;
+        }
+        *displayId = display.displayID;
+        return display;
+    }
+}
+
+extern "C" void MacVirtualDisplayDestroy(void *display) {
+    if (display != NULL) {
+        [(CGVirtualDisplay *)display release];
+    }
+}
+
+// macOS shows a placeholder display with a single mode when no monitor is attached.
+extern "C" bool MacIsOnlyHeadlessPlaceholderDisplay() {
+    CGDirectDisplayID ids[2];
+    uint32_t count = 0;
+    if (CGGetOnlineDisplayList(2, ids, &count) != kCGErrorSuccess || count != 1) {
+        return false;
+    }
+    return CGDisplayVendorNumber(ids[0]) == 'unkn' && CGDisplayModelNumber(ids[0]) == 'virt';
+}

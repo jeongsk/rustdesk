@@ -741,7 +741,10 @@ pub(super) fn get_original_resolution(
     #[cfg(windows)]
     let is_rustdesk_virtual_display =
         crate::virtual_display_manager::rustdesk_idd::is_virtual_display(&display_name);
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    let is_rustdesk_virtual_display =
+        crate::platform::macos_virtual_display::is_my_display(display_name);
+    #[cfg(not(any(windows, target_os = "macos")))]
     let is_rustdesk_virtual_display = false;
     Some(if is_rustdesk_virtual_display {
         Resolution {
@@ -903,6 +906,8 @@ pub async fn update_get_sync_displays_on_login() -> ResultType<(Vec<DisplayInfo>
             return Ok((displays, primary_display_idx));
         }
     }
+    #[cfg(target_os = "macos")]
+    crate::platform::macos_virtual_display::plug_in_if_headless();
     #[cfg(not(windows))]
     let displays = display_service::try_get_displays();
     #[cfg(windows)]

@@ -1616,13 +1616,19 @@ impl<T: InvokeUiSession> Session<T> {
         let Some(current) = pi.displays.get(display as usize) else {
             return;
         };
-        let Some(local) = local_main_display_resolution() else {
-            return;
-        };
         let is_virtual_display = current
             .original_resolution
             .as_ref()
             .map_or(false, |r| r.width == 0 && r.height == 0);
+        // A macOS virtual display is HiDPI, so it takes a size in points, not pixels.
+        let local = if is_virtual_display && pi.platform == "Mac OS" {
+            local_main_display_logical_resolution()
+        } else {
+            local_main_display_resolution()
+        };
+        let Some(local) = local else {
+            return;
+        };
         if let Some((width, height)) = fit_local_resolution(
             local,
             (current.width, current.height),
@@ -2166,6 +2172,22 @@ fn local_main_display_resolution() -> Option<(i32, i32)> {
     let displays = crate::display_service::try_get_displays().ok()?;
     let display = displays.first()?;
     Some((display.width() as i32, display.height() as i32))
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn local_main_display_logical_resolution() -> Option<(i32, i32)> {
+    #[cfg(target_os = "macos")]
+    {
+        let displays = crate::display_service::try_get_displays().ok()?;
+        let display = displays.first()?;
+        let scale = display.scale();
+        Some((
+            (display.width() as f64 / scale).round() as i32,
+            (display.height() as f64 / scale).round() as i32,
+        ))
+    }
+    #[cfg(not(target_os = "macos"))]
+    local_main_display_resolution()
 }
 
 #[cfg(any(not(any(target_os = "android", target_os = "ios")), test))]

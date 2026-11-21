@@ -4833,6 +4833,17 @@ impl Connection {
                 let display_idx = d.unwrap_or(self.display_idx);
                 if let Some(display) = displays.get(display_idx) {
                     let name = display.name();
+                    #[cfg(target_os = "macos")]
+                    if let Some(res) = crate::platform::macos_virtual_display::change_resolution(
+                        &name,
+                        r.width as _,
+                        r.height as _,
+                    ) {
+                        if let Err(e) = res {
+                            log::error!("Failed to change virtual display resolution: {}", e);
+                        }
+                        return;
+                    }
                     #[cfg(windows)]
                     if let Some(_ok) =
                         virtual_display_manager::rustdesk_idd::change_resolution_if_is_virtual_display(
@@ -7100,6 +7111,8 @@ mod raii {
                 display_service::restore_resolutions();
                 #[cfg(windows)]
                 let _ = virtual_display_manager::reset_all();
+                #[cfg(target_os = "macos")]
+                crate::platform::macos_virtual_display::plug_out();
                 #[cfg(target_os = "linux")]
                 if self.1 == AuthConnType::Remote || self.1 == AuthConnType::ViewCamera {
                     wayland::try_close_portal_session();
