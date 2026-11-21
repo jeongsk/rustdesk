@@ -15,6 +15,9 @@ pub mod win_device;
 pub mod macos;
 
 #[cfg(target_os = "macos")]
+pub mod macos_virtual_display;
+
+#[cfg(target_os = "macos")]
 pub mod delegate;
 
 #[cfg(target_os = "linux")]

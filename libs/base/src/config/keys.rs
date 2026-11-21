@@ -63,6 +63,7 @@ pub const OPTION_AUTO_DISCONNECT_TIMEOUT: &str = "auto-disconnect-timeout";
 pub const OPTION_ALLOW_ONLY_CONN_WINDOW_OPEN: &str = "allow-only-conn-window-open";
 pub const OPTION_ALLOW_AUTO_RECORD_INCOMING: &str = "allow-auto-record-incoming";
 pub const OPTION_ALLOW_AUTO_RECORD_OUTGOING: &str = "allow-auto-record-outgoing";
+pub const OPTION_ALLOW_MACOS_VIRTUAL_DISPLAY: &str = "allow-macos-virtual-display";
 pub const OPTION_HIDE_RECORDING_BUTTON: &str = "hide-recording-button";
 pub const OPTION_WINDOWS_SERVICE_VIDEO_SAVE_DIRECTORY: &str =
     "windows-service-video-save-directory";
@@ -297,6 +298,7 @@ pub const KEYS_SETTINGS: &[&str] = &[
     OPTION_WHITELIST,
     OPTION_ID_WHITELIST,
     OPTION_ALLOW_AUTO_DISCONNECT,
+    OPTION_ALLOW_MACOS_VIRTUAL_DISPLAY,
     OPTION_AUTO_DISCONNECT_TIMEOUT,
     OPTION_ALLOW_ONLY_CONN_WINDOW_OPEN,
     OPTION_ALLOW_AUTO_RECORD_INCOMING,
