@@ -64,6 +64,9 @@ pub const OPTION_ALLOW_ONLY_CONN_WINDOW_OPEN: &str = "allow-only-conn-window-ope
 pub const OPTION_ALLOW_AUTO_RECORD_INCOMING: &str = "allow-auto-record-incoming";
 pub const OPTION_ALLOW_AUTO_RECORD_OUTGOING: &str = "allow-auto-record-outgoing";
 pub const OPTION_ALLOW_MACOS_VIRTUAL_DISPLAY: &str = "allow-macos-virtual-display";
+pub const OPTION_SEND_SYSTEM_SHORTCUTS_TO_REMOTE: &str = "send-system-shortcuts-to-remote";
+// Internal bookkeeping, not a user setting.
+pub const OPTION_SUSPENDED_SYSTEM_SHORTCUTS: &str = "suspended-system-shortcuts";
 pub const OPTION_HIDE_RECORDING_BUTTON: &str = "hide-recording-button";
 pub const OPTION_WINDOWS_SERVICE_VIDEO_SAVE_DIRECTORY: &str =
     "windows-service-video-save-directory";
@@ -228,6 +231,7 @@ pub const KEYS_LOCAL_SETTINGS: &[&str] = &[
     OPTION_ENABLE_OPEN_NEW_CONNECTIONS_IN_TABS,
     OPTION_TEXTURE_RENDER,
     OPTION_ALLOW_D3D_RENDER,
+    OPTION_SEND_SYSTEM_SHORTCUTS_TO_REMOTE,
     OPTION_SYNC_AB_WITH_RECENT_SESSIONS,
     OPTION_SYNC_AB_TAGS,
     OPTION_FILTER_AB_BY_INTERSECTION,
